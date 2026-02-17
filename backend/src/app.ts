@@ -11,6 +11,8 @@ import {
   type AuthRequest,
 } from "./middleware/auth.middleware.js";
 import { redis } from "./lib/redis.js";
+import workspaceRoutes from "./routes/workspace.routes.js";
+import invitationsRoutes from "./routes/invitations.routes.js";
 
 const app = express();
 const PORT = process.env.PORT || 8000;
@@ -32,13 +34,6 @@ app.post("/users", async (req: Request, res: Response) => {
       return res.status(400).json({ error: "Email and name are required" });
     }
 
-    // Email format validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      console.log("❌ Validation failed: Invalid email format");
-      return res.status(400).json({ error: "Invalid email format" });
-    }
-
     const createData = {
       email,
       name,
@@ -48,7 +43,36 @@ app.post("/users", async (req: Request, res: Response) => {
 
     res.json(user);
   } catch (error: any) {
-    res.status(400).json({ error: error.message });
+    console.error("❌ User creation error:", error.message);
+
+    // Check if it's a unique constraint error
+    if (error.message.includes("Unique constraint failed")) {
+      return res.status(400).json({ error: error.message });
+    }
+
+    // Check if it's a database connection error
+    if (error.message.includes("Database connection failed")) {
+      return res.status(500).json({ error: "Database connection failed" });
+    }
+
+    // Generic error
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete("/users/:id", async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+    const deletedUser = await prisma.user.delete({ where: { id } });
+
+    if (!deletedUser) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(204).send();
+  } catch (error: any) {
+    console.error("❌ User deletion error:", error.message);
+    res.status(500).json({ error: error.message });
   }
 });
 
@@ -147,6 +171,22 @@ app.get("/test-redis", async (req: Request, res: Response) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+app.get("/error", (req: Request, res: Response) => {
+  throw new Error("Something broke!");
+});
+
+// Global error handler
+app.use((error: any, req: Request, res: Response, next: NextFunction) => {
+  console.error("❌ Global error handler:", error);
+  res.status(500).json({ error: "Something broke!" });
+});
+
+// Workspace routes
+app.use("/api/workspaces", workspaceRoutes);
+
+// Invitation routes
+app.use("/api/invitations", invitationsRoutes);
 
 async function startServer() {
   try {

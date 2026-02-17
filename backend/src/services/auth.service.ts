@@ -14,25 +14,49 @@ console.log(
 );
 
 export class AuthService {
-  // Store refresh token in Redis
+  // Store refresh token in Redis (with fallback)
   static async storeRefreshToken(userId: string, refreshToken: string) {
-    const key = `refresh_token:${userId}:${refreshToken}`;
-
-    // Store for 7 days (same as token expiry)
-    await redis.setex(key, 7 * 24 * 60 * 60, "1");
+    try {
+      const key = `refresh_token:${userId}:${refreshToken}`;
+      // Store for 7 days (same as token expiry)
+      await redis.setex(key, 7 * 24 * 60 * 60, "1");
+    } catch (error) {
+      console.warn(
+        "⚠️ Redis unavailable, skipping token storage:",
+        error.message,
+      );
+      // Continue without Redis - tokens will still work but can't be blacklisted
+    }
   }
 
-  // Check if refresh token is valid
+  // Check if refresh token is valid (with fallback)
   static async isRefreshTokenValid(userId: string, refreshToken: string) {
-    const key = `refresh_token:${userId}:${refreshToken}`;
-    const exists = await redis.exists(key);
-    return exists === 1;
+    try {
+      const key = `refresh_token:${userId}:${refreshToken}`;
+      const exists = await redis.exists(key);
+      return exists === 1;
+    } catch (error) {
+      console.warn(
+        "⚠️ Redis unavailable, assuming token valid:",
+        error.message,
+      );
+      // When Redis is unavailable, assume token is valid
+      return true;
+    }
   }
 
-  // Blacklist refresh token (delete from Redis)
+  // Blacklist refresh token (delete from Redis) (with fallback)
   static async blacklistRefreshToken(userId: string, refreshToken: string) {
-    const key = `refresh_token:${userId}:${refreshToken}`;
-    await redis.del(key);
+    try {
+      const key = `refresh_token:${userId}:${refreshToken}`;
+      await redis.del(key);
+    } catch (error) {
+      console.warn(
+        "⚠️ Redis unavailable, skipping token blacklisting:",
+        error.message,
+      );
+      // Continue without Redis
+    }
   }
 
   // Hash password

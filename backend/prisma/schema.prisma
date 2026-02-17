@@ -25,6 +25,8 @@ model User {
   // Relations
   ownedWorkspaces Workspace[]       @relation("WorkspaceOwner")
   memberships     WorkspaceMember[]
+  invitations     Invitation[]       @relation("InvitedUser")
+  sentInvitations Invitation[]       @relation("Inviter")
 }
 
 model Workspace {
@@ -36,8 +38,9 @@ model Workspace {
   updatedAt DateTime @updatedAt
 
   // Relations
-  owner   User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
-  members WorkspaceMember[]
+  owner       User              @relation("WorkspaceOwner", fields: [ownerId], references: [id])
+  members     WorkspaceMember[]
+  invitations Invitation[]
 }
 
 model WorkspaceMember {
@@ -53,4 +56,21 @@ model WorkspaceMember {
 
   // One user can only be in a workspace once
   @@unique([workspaceId, userId])
+}
+
+model Invitation {
+  id         String   @id @default(uuid())
+  email      String
+  role       Role     @default(MEMBER)
+  token      String   @unique
+  workspaceId String
+  invitedBy  String
+  expiresAt  DateTime
+  acceptedAt DateTime?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  inviter   User      @relation("Inviter", fields: [invitedBy], references: [id])
+  user      User?     @relation("InvitedUser", fields: [email], references: [email])
 }
