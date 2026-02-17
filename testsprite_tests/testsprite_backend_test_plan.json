@@ -1,0 +1,37 @@
+[
+  {
+    "id": "TC001",
+    "title": "get root endpoint returns hello message",
+    "description": "Verify that a GET request to the root endpoint '/' returns a 200 status code with a JSON response containing {\"message\":\"Hello World\"}."
+  },
+  {
+    "id": "TC002",
+    "title": "post users creates new user successfully",
+    "description": "Test that a POST request to '/users' with a valid email and name creates a new user record and returns a 200 status code with the user object including id, email, name, createdAt, and updatedAt fields."
+  },
+  {
+    "id": "TC003",
+    "title": "post users missing email returns error",
+    "description": "Ensure that a POST request to '/users' with a missing email field in the request body returns a 400 status code with a JSON error message."
+  },
+  {
+    "id": "TC004",
+    "title": "post users duplicate email returns unique constraint error",
+    "description": "Verify that attempting to create a user with an email that already exists in the database via POST '/users' returns a 400 status code with an error message indicating a unique constraint failure on the email field."
+  },
+  {
+    "id": "TC005",
+    "title": "post users invalid email format allowed",
+    "description": "Confirm that the current implementation allows creating a user with an invalid email format via POST '/users' and returns a 200 status code with the created user object, as email format validation is not enforced."
+  },
+  {
+    "id": "TC006",
+    "title": "get error endpoint returns server error",
+    "description": "Test that a GET request to '/error' triggers the global error handler and returns a 500 status code with a JSON response containing {\"error\":\"Something broke!\"}."
+  },
+  {
+    "id": "TC007",
+    "title": "post users db failure returns server error",
+    "description": "Simulate a database connection failure during a POST request to '/users' and verify that the global error handler returns a 500 status code with a JSON error message."
+  }
+]

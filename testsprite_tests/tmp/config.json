@@ -1,0 +1,19 @@
+{
+  "status": "commited",
+  "type": "backend",
+  "scope": "codebase",
+  "localEndpoint": "http://localhost:8000",
+  "backendAuthType": "basic token",
+  "backendUsername": "test@test.com",
+  "executionArgs": {
+    "projectName": "yander",
+    "projectPath": "d:\\Projects\\yander",
+    "testIds": [],
+    "additionalInstruction": "Focus on identifying and fixing the PrismaClient initialization error and database connection issues",
+    "envs": {
+      "API_KEY": "sk-user-9YQpwzQOGN1gLasEWcwja9Dzcul-hWrIJSSYxb8SDXN8Y-6VwuPbl1j3-3NsIhgJHs_uba41X8UmwQgAaUlRSUd2XQgJo9kesl4dwrHyjYfbSBypj-CDJFFpjc4CNh1el3I"
+    }
+  },
+  "serverPort": 57640,
+  "proxy": "http://38242030-03bd-4797-bcae-d455875f74e7:MbHHt3OAUGTvdV0JaOYLvLyO9EqgYTZI@tun.testsprite.com:8080"
+}

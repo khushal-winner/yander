@@ -1,0 +1,61 @@
+version: "2"
+type: backend
+tech_stack:
+  - Node.js
+  - Express
+  - PostgreSQL
+  - Prisma ORM
+features:
+  - name: Health and root endpoint
+    description: Basic root endpoint to verify that the backend server is running.
+    files:
+      - backend/src/app.ts
+    endpoints:
+      - method: GET
+        path: /
+        description: Root endpoint returning a hello message.
+        auth_required: false
+        response_schema:
+          "200": |
+            {
+              "message": "Hello World"
+            }
+    depends_on: []
+  - name: User creation API
+    description: Create a new user record in the database using Prisma.
+    files:
+      - backend/src/app.ts
+      - backend/src/lib/prisma.ts
+      - backend/prisma/schema.prisma
+    endpoints:
+      - method: POST
+        path: /users
+        description: Create a new user with email, name, and a placeholder password hash.
+        auth_required: false
+        request_schema:
+          body:
+            email: string
+            name: string
+        response_schema:
+          "200": |
+            {
+              "id": "string",
+              "email": "string",
+              "name": "string",
+              "createdAt": "string",
+              "updatedAt": "string"
+            }
+          "400": |
+            {
+              "error": "string"
+            }
+    depends_on:
+      - PostgreSQL database
+      - Prisma User model
+known_limitations:
+  - issue: No email format validation on user creation
+    location: backend/src/app.ts
+    impact: Invalid email formats can be stored in the database.
+  - issue: Password stored as a hard-coded placeholder string
+    location: backend/src/app.ts
+    impact: Users are created without a real password or secure hash, which is insecure for real authentication flows.
