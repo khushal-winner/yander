@@ -1,101 +1,81 @@
 import requests
 import uuid
-import random
-import string
 
-base_url = "http://localhost:8000"
-timeout = 30
-
-auth_username = "test@test.com"
+BASE_URL = "http://localhost:8000"
+AUTH_USERNAME = "test@test.com"
+AUTH_TOKEN_HEADER = "Authorization"
+TIMEOUT = 30
 
 def get_access_token():
-    # Login to get accessToken and refreshToken
-    login_url = f"{base_url}/auth/login"
-    login_payload = {
-        "email": auth_username,
-        "password": "password123"  # Assuming a default password for the test user
+    login_url = BASE_URL + "/auth/login"
+    login_data = {
+        "email": AUTH_USERNAME,
+        "password": "password"  # Assuming password; if unknown, register/login step needed
     }
     try:
-        r = requests.post(login_url, json=login_payload, timeout=timeout)
-        r.raise_for_status()
-        tokens = r.json()
-        return tokens.get("accessToken")
-    except Exception as e:
-        raise RuntimeError(f"Failed to login and get access token: {e}")
-
-def create_workspace(access_token):
-    url = f"{base_url}/api/workspaces"
-    slug = ''.join(random.choices(string.ascii_lowercase + string.digits, k=8))
-    payload = {
-        "name": "Test Workspace " + str(uuid.uuid4()),
-        "slug": slug
-    }
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    r = requests.post(url, json=payload, headers=headers, timeout=timeout)
-    r.raise_for_status()
-    return r.json()
-
-def delete_workspace(access_token, workspace_id):
-    url = f"{base_url}/api/workspaces/{workspace_id}"
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    r = requests.delete(url, headers=headers, timeout=timeout)
-    if r.status_code not in (204, 404):
-        r.raise_for_status()
-
-def test_post_api_invitations_send_invitation_to_join_workspace():
-    access_token = get_access_token()
-    headers = {
-        "Authorization": f"Bearer {access_token}"
-    }
-    workspace = None
-    invitation_id = None
-    try:
-        # Create a workspace to invite someone to
-        workspace = create_workspace(access_token)
-        workspace_id = workspace.get("id")
-        assert workspace_id, "Workspace creation did not return an id"
-
-        # Prepare invitation payload
-        invitation_email = f"invitee_{uuid.uuid4().hex[:8]}@example.com"
-        invitation_role = "member"
-        invitation_url = f"{base_url}/api/invitations"
-        invitation_payload = {
-            "email": invitation_email,
-            "workspaceId": workspace_id,
-            "role": invitation_role
+        resp = requests.post(login_url, json=login_data, timeout=TIMEOUT)
+        resp.raise_for_status()
+        return resp.json()["accessToken"]
+    except Exception:
+        # If login fails because password unknown, register user with fixed password then login
+        register_url = BASE_URL + "/auth/register"
+        register_data = {
+            "email": AUTH_USERNAME,
+            "password": "password",
+            "name": "Test User"
         }
+        r_reg = requests.post(register_url, json=register_data, timeout=TIMEOUT)
+        r_reg.raise_for_status()
+        r_login = requests.post(login_url, json=login_data, timeout=TIMEOUT)
+        r_login.raise_for_status()
+        return r_login.json()["accessToken"]
 
-        # Send POST /api/invitations
-        r = requests.post(invitation_url, json=invitation_payload, headers=headers, timeout=timeout)
-        assert r.status_code == 201, f"Expected status code 201, got {r.status_code}"
-        invitation = r.json()
-        assert invitation.get("id"), "Invitation response missing 'id'"
-        assert invitation.get("email") == invitation_email, "Invitation email mismatch"
-        assert invitation.get("workspaceId") == workspace_id, "Invitation workspaceId mismatch"
-        assert invitation.get("role") == invitation_role, "Invitation role mismatch"
+def create_workspace(token):
+    url = BASE_URL + "/api/workspaces"
+    workspace_name = "TestWorkspace_" + str(uuid.uuid4())
+    workspace_slug = "testworkspace-" + str(uuid.uuid4())[:8]
+    headers = {AUTH_TOKEN_HEADER: f"Bearer {token}"}
+    body = {"name": workspace_name, "slug": workspace_slug}
+    resp = requests.post(url, json=body, headers=headers, timeout=TIMEOUT)
+    resp.raise_for_status()
+    return resp.json()
 
-        invitation_id = invitation.get("id")
+def delete_workspace(token, workspace_id):
+    url = f"{BASE_URL}/api/workspaces/{workspace_id}"
+    headers = {AUTH_TOKEN_HEADER: f"Bearer {token}"}
+    resp = requests.delete(url, headers=headers, timeout=TIMEOUT)
+    resp.raise_for_status()
+    # No content response expected 204
 
+def test_post_api_invitations_send_invitation():
+    access_token = get_access_token()
+    headers = {AUTH_TOKEN_HEADER: f"Bearer {access_token}"}
+
+    # Create workspace to use for invitation
+    workspace = create_workspace(access_token)
+    workspace_id = workspace["id"]
+
+    invitation_email = f"invitee_{uuid.uuid4().hex[:8]}@example.com"
+    invitation_role = "member"
+
+    invitations_url = BASE_URL + "/api/invitations"
+    invitation_data = {
+        "email": invitation_email,
+        "workspaceId": workspace_id,
+        "role": invitation_role
+    }
+
+    try:
+        response = requests.post(invitations_url, json=invitation_data, headers=headers, timeout=TIMEOUT)
+        assert response.status_code == 201, f"Expected 201, got {response.status_code}"
+        invitation = response.json()
+        assert isinstance(invitation, dict), "Invitation response is not an object"
+        assert invitation.get("email") == invitation_email, "Invitation email does not match"
+        assert invitation.get("workspaceId") == workspace_id, "Invitation workspaceId does not match"
+        assert invitation.get("role") == invitation_role, "Invitation role does not match"
+        assert "id" in invitation and invitation["id"], "Invitation id missing or empty"
     finally:
-        # Cleanup: delete invitation if exists
-        if invitation_id:
-            try:
-                del_url = f"{base_url}/api/invitations/{invitation_id}"
-                del_resp = requests.delete(del_url, headers=headers, timeout=timeout)
-                if del_resp.status_code not in (204, 404):
-                    del_resp.raise_for_status()
-            except Exception:
-                pass
+        # Cleanup: delete the created workspace which implicitly cleans up related invitations
+        delete_workspace(access_token, workspace_id)
 
-        # Cleanup: delete workspace if exists
-        if workspace and workspace.get("id"):
-            try:
-                delete_workspace(access_token, workspace["id"])
-            except Exception:
-                pass
-
-test_post_api_invitations_send_invitation_to_join_workspace()
+test_post_api_invitations_send_invitation()

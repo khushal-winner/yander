@@ -1,7 +1,10 @@
 import { Router } from "express";
 import type { Response } from "express";
 import { AuthService } from "../services/auth.service.js";
-import type { AuthRequest } from "../middleware/auth.middleware.js";
+import {
+  authMiddleware,
+  type AuthRequest,
+} from "../middleware/auth.middleware.js";
 
 const router = Router();
 
@@ -42,7 +45,7 @@ router.post("/login", async (req: AuthRequest, res: Response) => {
 });
 
 // Get current user
-router.get("/me", async (req: AuthRequest, res: Response) => {
+router.get("/me", authMiddleware, async (req: AuthRequest, res: Response) => {
   try {
     const { prisma } = await import("../lib/prisma.js");
     const user = await prisma.user.findUnique({
@@ -77,19 +80,23 @@ router.post("/refresh", async (req: AuthRequest, res: Response) => {
 });
 
 // Logout
-router.post("/logout", async (req: AuthRequest, res: Response) => {
-  try {
-    const { refreshToken } = req.body;
+router.post(
+  "/logout",
+  authMiddleware,
+  async (req: AuthRequest, res: Response) => {
+    try {
+      const { refreshToken } = req.body;
 
-    if (!refreshToken) {
-      return res.status(400).json({ error: "Refresh token required" });
+      if (!refreshToken) {
+        return res.status(400).json({ error: "Refresh token required" });
+      }
+
+      await AuthService.logout(req.user!.userId, refreshToken);
+      res.json({ message: "Logged out successfully" });
+    } catch (error: any) {
+      res.status(400).json({ error: error.message });
     }
-
-    await AuthService.logout(req.user!.userId, refreshToken);
-    res.json({ message: "Logged out successfully" });
-  } catch (error: any) {
-    res.status(400).json({ error: error.message });
-  }
-});
+  },
+);
 
 export default router;

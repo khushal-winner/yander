@@ -1,34 +1,22 @@
 import requests
 
-BASE_URL = "http://localhost:8000"
-TIMEOUT = 30
-
 def test_post_auth_login_valid_credentials():
-    url = f"{BASE_URL}/auth/login"
-    headers = {
-        "Content-Type": "application/json"
-    }
+    base_url = "http://localhost:8000"
+    login_url = f"{base_url}/auth/login"
+    headers = {"Content-Type": "application/json"}
     payload = {
         "email": "test@test.com",
-        "password": "test"  # Assuming password is "test" because only email given; use a correct known test password
+        "password": "testpassword"  # password must be correct for this test to pass
     }
-    
+    # We don't have the password explicitly in the PRD or instructions
+    # Assuming it must be "testpassword" or must be replaced by a valid password if known.
     try:
-        response = requests.post(url, json=payload, headers=headers, timeout=TIMEOUT)
-    except requests.RequestException as e:
-        assert False, f"Request to {url} failed: {e}"
-    
-    assert response.status_code == 200, f"Expected status 200, got {response.status_code}, response: {response.text}"
-    try:
+        response = requests.post(login_url, json=payload, headers=headers, timeout=30)
+        assert response.status_code == 200, f"Expected status 200 but got {response.status_code}"
         data = response.json()
-    except ValueError:
-        assert False, "Response is not valid JSON"
-
-    # Validate presence of accessToken and refreshToken in response
-    assert isinstance(data, dict), f"Response JSON should be an object, got {type(data)}"
-    assert "accessToken" in data, "Response JSON missing 'accessToken'"
-    assert isinstance(data["accessToken"], str) and data["accessToken"], "'accessToken' should be non-empty string"
-    assert "refreshToken" in data, "Response JSON missing 'refreshToken'"
-    assert isinstance(data["refreshToken"], str) and data["refreshToken"], "'refreshToken' should be non-empty string"
+        assert "accessToken" in data and isinstance(data["accessToken"], str) and data["accessToken"], "Missing or invalid accessToken"
+        assert "refreshToken" in data and isinstance(data["refreshToken"], str) and data["refreshToken"], "Missing or invalid refreshToken"
+    except requests.RequestException as e:
+        assert False, f"Request failed: {e}"
 
 test_post_auth_login_valid_credentials()
