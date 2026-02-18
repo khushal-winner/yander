@@ -1,44 +1,45 @@
-import { Router } from "express";
-import { WorkspaceController } from "../controllers/workspace.controller.js";
-import { authMiddleware } from "../middleware/auth.middleware.js";
-import { workspaceMiddleware } from "../middleware/workspace.middleware.js";
-import { requireRole } from "../middleware/role.middleware.js";
+import { Router } from 'express'
+import { WorkspaceController } from '../controllers/workspace.controller.js'
+import { authMiddleware } from '../middleware/auth.middleware.js'
+import { workspaceMiddleware } from '../middleware/workspace.middleware.js'
+import { requireRole } from '../middleware/role.middleware.js'
 
-const router = Router();
+const router = Router()
 
-// List my workspaces (no workspace context needed)
-router.get("/", authMiddleware, WorkspaceController.listMyWorkspaces);
+// List my workspaces (no workspace context needed - listing ALL user's workspaces)
+router.get(
+  '/',
+  authMiddleware,  // Only needs: who are you?
+  WorkspaceController.listMyWorkspaces
+)
 
 // All routes below need workspace context
+// They all need to know: which workspace? are you member?
+
+// List members in workspace
 router.get(
-  "/:id/members",
-  authMiddleware,
-  workspaceMiddleware,
-  WorkspaceController.listMembers,
-);
+  '/:id/members',
+  authMiddleware,       // 1. Who are you?
+  workspaceMiddleware,  // 2. Which workspace? Are you member?
+  WorkspaceController.listMembers
+)
 
-router.post(
-  "/:id/invite",
-  authMiddleware,
-  workspaceMiddleware,
-  requireRole("OWNER", "ADMIN"),
-  WorkspaceController.inviteMember,
-);
-
+// Change member role
 router.patch(
-  "/:id/members/:userId",
+  '/:id/members/:userId',
   authMiddleware,
   workspaceMiddleware,
-  requireRole("OWNER", "ADMIN"), // Only owner/admin can change roles
-  WorkspaceController.changeMemberRole,
-);
+  requireRole('OWNER', 'ADMIN'),  // 3. Do you have permission?
+  WorkspaceController.changeMemberRole
+)
 
+// Remove member
 router.delete(
-  "/:id/members/:userId",
+  '/:id/members/:userId',
   authMiddleware,
   workspaceMiddleware,
-  requireRole("OWNER", "ADMIN"),
-  WorkspaceController.removeMember,
-);
+  requireRole('OWNER', 'ADMIN'),
+  WorkspaceController.removeMember
+)
 
-export default router;
+export default router

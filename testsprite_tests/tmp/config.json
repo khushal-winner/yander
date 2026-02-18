@@ -9,11 +9,11 @@
     "projectName": "yander",
     "projectPath": "d:\\Projects\\yander",
     "testIds": [],
-    "additionalInstruction": "Focus on identifying and fixing the PrismaClient initialization error and database connection issues",
+    "additionalInstruction": "Test all workspace API endpoints including:\n1. GET /api/workspaces - List user workspaces\n2. GET /api/workspaces/:id/members - List workspace members\n3. PATCH /api/workspaces/:id/members/:userId - Change member role\n4. DELETE /api/workspaces/:id/members/:userId - Remove member\n5. Test authentication and authorization middleware\n6. Test error handling for missing headers, invalid workspace IDs, and permission issues\n7. Test the health check endpoint\n8. Verify all middleware is working correctly\n\nFocus on comprehensive testing of the workspace functionality we just implemented.",
     "envs": {
       "API_KEY": "sk-user-9YQpwzQOGN1gLasEWcwja9Dzcul-hWrIJSSYxb8SDXN8Y-6VwuPbl1j3-3NsIhgJHs_uba41X8UmwQgAaUlRSUd2XQgJo9kesl4dwrHyjYfbSBypj-CDJFFpjc4CNh1el3I"
     }
   },
-  "serverPort": 57640,
-  "proxy": "http://38242030-03bd-4797-bcae-d455875f74e7:MbHHt3OAUGTvdV0JaOYLvLyO9EqgYTZI@tun.testsprite.com:8080"
+  "serverPort": 61257,
+  "proxy": "http://5e2179bb-f568-49b8-a1cf-b377dc002f47:SAbqtle4LpCS3cjKVrewJkyLIbX72L8M@tun.testsprite.com:8080"
 }

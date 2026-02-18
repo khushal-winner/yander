@@ -1,37 +1,52 @@
 [
   {
     "id": "TC001",
-    "title": "get root endpoint returns hello message",
-    "description": "Verify that a GET request to the root endpoint '/' returns a 200 status code with a JSON response containing {\"message\":\"Hello World\"}."
+    "title": "post auth register user registration with valid data",
+    "description": "Test the POST /auth/register endpoint with valid email, password, and name to ensure it returns 201 status with user object and access and refresh tokens."
   },
   {
     "id": "TC002",
-    "title": "post users creates new user successfully",
-    "description": "Test that a POST request to '/users' with a valid email and name creates a new user record and returns a 200 status code with the user object including id, email, name, createdAt, and updatedAt fields."
+    "title": "post auth login user login with valid credentials",
+    "description": "Test the POST /auth/login endpoint with correct email and password to verify it returns 200 status with access and refresh tokens."
   },
   {
     "id": "TC003",
-    "title": "post users missing email returns error",
-    "description": "Ensure that a POST request to '/users' with a missing email field in the request body returns a 400 status code with a JSON error message."
+    "title": "get auth me fetch current user information",
+    "description": "Test the GET /auth/me endpoint with a valid access token in Authorization header to ensure it returns 200 status with the current user object."
   },
   {
     "id": "TC004",
-    "title": "post users duplicate email returns unique constraint error",
-    "description": "Verify that attempting to create a user with an email that already exists in the database via POST '/users' returns a 400 status code with an error message indicating a unique constraint failure on the email field."
+    "title": "post auth refresh refresh access token using refresh token",
+    "description": "Test the POST /auth/refresh endpoint with a valid refresh token to verify it returns 200 status with a new access token."
   },
   {
     "id": "TC005",
-    "title": "post users invalid email format allowed",
-    "description": "Confirm that the current implementation allows creating a user with an invalid email format via POST '/users' and returns a 200 status code with the created user object, as email format validation is not enforced."
+    "title": "post auth logout invalidate refresh token on logout",
+    "description": "Test the POST /auth/logout endpoint with valid access token and refresh token to ensure it returns 200 status with success message and invalidates the refresh token."
   },
   {
     "id": "TC006",
-    "title": "get error endpoint returns server error",
-    "description": "Test that a GET request to '/error' triggers the global error handler and returns a 500 status code with a JSON response containing {\"error\":\"Something broke!\"}."
+    "title": "post users create new user with valid data",
+    "description": "Test the POST /users endpoint with valid email and name to verify it returns 201 status with the created user object."
   },
   {
     "id": "TC007",
-    "title": "post users db failure returns server error",
-    "description": "Simulate a database connection failure during a POST request to '/users' and verify that the global error handler returns a 500 status code with a JSON error message."
+    "title": "delete users delete user by id",
+    "description": "Test the DELETE /users/:id endpoint with an existing user id to ensure it returns 204 No content indicating successful deletion."
+  },
+  {
+    "id": "TC008",
+    "title": "get api workspaces list all workspaces for authenticated user",
+    "description": "Test the GET /api/workspaces endpoint with a valid access token to verify it returns 200 status with a list of workspaces the user belongs to."
+  },
+  {
+    "id": "TC009",
+    "title": "post api invitations send invitation to join workspace",
+    "description": "Test the POST /api/invitations endpoint with valid email, workspaceId, and role to ensure it returns 201 status with the created invitation object."
+  },
+  {
+    "id": "TC010",
+    "title": "get root health check endpoint",
+    "description": "Test the GET / endpoint to verify it returns 200 status with a Hello World message indicating server is running."
   }
 ]

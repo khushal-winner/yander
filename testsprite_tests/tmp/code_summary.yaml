@@ -1,61 +1,217 @@
 version: "2"
 type: backend
 tech_stack:
-  - Node.js
-  - Express
-  - PostgreSQL
-  - Prisma ORM
+  - language: TypeScript
+  - framework: Express.js
+  - database: PostgreSQL
+  - other: Prisma ORM, Redis, JWT, bcrypt
 features:
-  - name: Health and root endpoint
-    description: Basic root endpoint to verify that the backend server is running.
+  - name: User Authentication
+    description: Complete authentication system with registration, login, and token management
     files:
       - backend/src/app.ts
+      - backend/src/services/auth.service.ts
+      - backend/src/middleware/auth.middleware.ts
     endpoints:
-      - method: GET
-        path: /
-        description: Root endpoint returning a hello message.
+      - method: POST
+        path: /auth/register
+        description: User registration with email, password, and name
         auth_required: false
+        request_schema:
+          body:
+            email: string
+            password: string
+            name: string
         response_schema:
-          "200": |
-            {
-              "message": "Hello World"
-            }
-    depends_on: []
-  - name: User creation API
-    description: Create a new user record in the database using Prisma.
+          "201": User with tokens
+          "400": Validation error
+      - method: POST
+        path: /auth/login
+        description: User login with email and password
+        auth_required: false
+        request_schema:
+          body:
+            email: string
+            password: string
+        response_schema:
+          "200": User with tokens
+          "401": Invalid credentials
+      - method: GET
+        path: /auth/me
+        description: Get current user information
+        auth_required: true
+        response_schema:
+          "200": User object
+          "401": Unauthorized
+      - method: POST
+        path: /auth/refresh
+        description: Refresh access token using refresh token
+        auth_required: false
+        request_schema:
+          body:
+            refreshToken: string
+        response_schema:
+          "200": New access token
+          "401": Invalid refresh token
+      - method: POST
+        path: /auth/logout
+        description: Logout user and invalidate refresh token
+        auth_required: true
+        request_schema:
+          body:
+            refreshToken: string
+        response_schema:
+          "200": Success message
+          "400": Error message
+  - name: User Management
+    description: Basic CRUD operations for user management
     files:
       - backend/src/app.ts
-      - backend/src/lib/prisma.ts
-      - backend/prisma/schema.prisma
     endpoints:
       - method: POST
         path: /users
-        description: Create a new user with email, name, and a placeholder password hash.
+        description: Create a new user
         auth_required: false
         request_schema:
           body:
             email: string
             name: string
         response_schema:
-          "200": |
-            {
-              "id": "string",
-              "email": "string",
-              "name": "string",
-              "createdAt": "string",
-              "updatedAt": "string"
-            }
-          "400": |
-            {
-              "error": "string"
-            }
-    depends_on:
-      - PostgreSQL database
-      - Prisma User model
+          "201": User object
+          "400": Validation error
+      - method: DELETE
+        path: /users/:id
+        description: Delete a user by ID
+        auth_required: false
+        response_schema:
+          "204": No content
+          "404": User not found
+          "500": Server error
+  - name: Workspace Management
+    description: Complete workspace CRUD operations with member management
+    files:
+      - backend/src/routes/workspace.routes.ts
+      - backend/src/middleware/workspace.middleware.ts
+    endpoints:
+      - method: GET
+        path: /api/workspaces
+        description: List all workspaces for authenticated user
+        auth_required: true
+        response_schema:
+          "200": Workspace[]
+          "401": Unauthorized
+      - method: POST
+        path: /api/workspaces
+        description: Create a new workspace
+        auth_required: true
+        request_schema:
+          body:
+            name: string
+            slug: string
+        response_schema:
+          "201": Workspace object
+          "400": Validation error
+      - method: GET
+        path: /api/workspaces/:id
+        description: Get workspace details by ID
+        auth_required: true
+        response_schema:
+          "200": Workspace object
+          "404": Workspace not found
+      - method: PUT
+        path: /api/workspaces/:id
+        description: Update workspace details
+        auth_required: true
+        request_schema:
+          body:
+            name: string
+            slug: string
+        response_schema:
+          "200": Updated workspace
+          "404": Workspace not found
+      - method: DELETE
+        path: /api/workspaces/:id
+        description: Delete a workspace
+        auth_required: true
+        response_schema:
+          "204": No content
+          "404": Workspace not found
+  - name: Invitation System
+    description: Email-based invitation system with role-based permissions
+    files:
+      - backend/src/routes/invitations.routes.ts
+    endpoints:
+      - method: GET
+        path: /api/invitations
+        description: List all invitations for user
+        auth_required: true
+        response_schema:
+          "200": Invitation[]
+          "401": Unauthorized
+      - method: POST
+        path: /api/invitations
+        description: Send invitation to join workspace
+        auth_required: true
+        request_schema:
+          body:
+            email: string
+            workspaceId: string
+            role: string
+        response_schema:
+          "201": Invitation object
+          "400": Validation error
+      - method: POST
+        path: /api/invitations/accept/:token
+        description: Accept workspace invitation
+        auth_required: false
+        response_schema:
+          "200": Success message
+          "400": Invalid or expired token
+      - method: DELETE
+        path: /api/invitations/:id
+        description: Decline or cancel invitation
+        auth_required: true
+        response_schema:
+          "204": No content
+          "404": Invitation not found
+  - name: Health Check
+    description: System health and connectivity checks
+    files:
+      - backend/src/app.ts
+    endpoints:
+      - method: GET
+        path: /
+        description: Root endpoint health check
+        auth_required: false
+        response_schema:
+          "200": Hello World message
+      - method: GET
+        path: /test-redis
+        description: Test Redis connectivity
+        auth_required: false
+        response_schema:
+          "200": Redis test value
+          "500": Redis connection error
+      - method: GET
+        path: /error
+        description: Test error handling
+        auth_required: false
+        response_schema:
+          "500": Error message
+depends_on:
+  - PostgreSQL Database
+  - Redis Cache
+  - JWT Token System
 known_limitations:
-  - issue: No email format validation on user creation
+  - issue: No comprehensive input validation on some endpoints
     location: backend/src/app.ts
-    impact: Invalid email formats can be stored in the database.
-  - issue: Password stored as a hard-coded placeholder string
+    impact: Potential security vulnerabilities
+  - issue: Limited error handling granularity
     location: backend/src/app.ts
-    impact: Users are created without a real password or secure hash, which is insecure for real authentication flows.
+    impact: Difficult to debug specific issues
+  - issue: No rate limiting on authentication endpoints
+    location: backend/src/app.ts
+    impact: Vulnerable to brute force attacks
+  - issue: Missing comprehensive logging
+    location: backend/src/
+    impact: Difficult to monitor and debug production issues

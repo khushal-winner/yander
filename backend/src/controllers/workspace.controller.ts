@@ -1,108 +1,82 @@
 import type { Response } from "express";
 import type { WorkspaceRequest } from "../middleware/workspace.middleware.js";
 import type { AuthRequest } from "../middleware/auth.middleware.js";
-import { prisma } from "../lib/prisma.js";
-import crypto from "crypto";
-import { sendInviteEmail } from "../lib/email.js";
+import { WorkspaceService } from "../services/workspace.service.js";
+import { Role } from "@prisma/client";
 
 export class WorkspaceController {
   // GET /api/workspaces
   // List all workspaces I'm a member of
   static async listMyWorkspaces(req: AuthRequest, res: Response) {
     try {
-      const memberships = await prisma.workspaceMember.findMany({
-        where: {
-          userId: req.user!.userId,
-        },
-        include: {
-          workspace: true,
-        },
-      });
-
-      // Return workspaces with user's role in each
-      const workspaces = memberships.map((m) => ({
-        id: m.workspace.id,
-        name: m.workspace.name,
-        slug: m.workspace.slug,
-        role: m.role,
-        joinedAt: m.joinedAt,
-      }));
+      const workspaces = await WorkspaceService.getUserWorkspaces(
+        req.user!.userId,
+      );
 
       res.json(workspaces);
     } catch (error: any) {
+      console.error("List workspaces error:", error);
       res.status(500).json({ error: error.message });
     }
   }
 
   // GET /api/workspaces/:id/members
-  // List all members of a workspace
+  // List all members in a workspace
   static async listMembers(req: WorkspaceRequest, res: Response) {
     try {
-      const members = await prisma.workspaceMember.findMany({
-        where: {
-          workspaceId: req.workspaceId,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-              avatarUrl: true,
-            },
-          },
-        },
-      });
+      // workspaceId comes from middleware
+      const members = await WorkspaceService.getWorkspaceMembers(
+        req.workspaceId!,
+      );
 
       res.json(members);
     } catch (error: any) {
+      console.error("List members error:", error);
       res.status(500).json({ error: error.message });
     }
   }
 
   // PATCH /api/workspaces/:id/members/:userId
-  // Change member role
+  // Change a member's role
   static async changeMemberRole(req: WorkspaceRequest, res: Response) {
     try {
       const { userId } = req.params;
       const { role } = req.body;
 
-      // Validate role
-      const validRoles = ["ADMIN", "MEMBER", "VIEWER"];
-      if (!validRoles.includes(role)) {
-        return res.status(400).json({ error: "Invalid role" });
+      // 1. Validate userId exists
+      if (!userId || typeof userId !== "string") {
+        return res.status(400).json({
+          error: "Valid userId is required",
+        });
       }
 
-      // Can't change owner's role
-      const targetMember = await prisma.workspaceMember.findUnique({
-        where: {
-          workspaceId_userId: {
-            workspaceId: req.workspaceId!,
-            userId,
-          },
-        },
-      });
-
-      if (!targetMember) {
-        return res.status(404).json({ error: "Member not found" });
+      // 2. Validate role value
+      const validRoles: Role[] = ["ADMIN", "MEMBER", "VIEWER"];
+      if (!validRoles.includes(role as Role)) {
+        return res.status(400).json({
+          error: "Invalid role. Must be ADMIN, MEMBER, or VIEWER",
+        });
       }
 
-      if (targetMember.role === "OWNER") {
-        return res.status(403).json({ error: "Can't change owner's role" });
-      }
-
-      const updated = await prisma.workspaceMember.update({
-        where: {
-          workspaceId_userId: {
-            workspaceId: req.workspaceId!,
-            userId,
-          },
-        },
-        data: { role },
-      });
+      // 3. Change role (service handles business logic)
+      const updated = await WorkspaceService.changeMemberRole(
+        req.workspaceId!,
+        userId,
+        role as Role,
+      );
 
       res.json(updated);
     } catch (error: any) {
+      console.error("Change role error:", error);
+
+      // Handle specific errors
+      if (error.message.includes("not found")) {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message.includes("Cannot")) {
+        return res.status(403).json({ error: error.message });
+      }
+
       res.status(500).json({ error: error.message });
     }
   }
@@ -113,154 +87,30 @@ export class WorkspaceController {
     try {
       const { userId } = req.params;
 
-      // Can't remove yourself (owner)
-      if (userId === req.user!.userId && req.userRole === "OWNER") {
-        return res.status(403).json({ error: "Owner cannot leave workspace" });
-      }
-
-      // Can't remove owner
-      const targetMember = await prisma.workspaceMember.findUnique({
-        where: {
-          workspaceId_userId: {
-            workspaceId: req.workspaceId!,
-            userId,
-          },
-        },
-      });
-
-      if (targetMember?.role === "OWNER") {
-        return res.status(403).json({ error: "Can't remove owner" });
-      }
-
-      await prisma.workspaceMember.delete({
-        where: {
-          workspaceId_userId: {
-            workspaceId: req.workspaceId!,
-            userId,
-          },
-        },
-      });
-
-      res.json({ message: "Member removed" });
-    } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  }
-
-  // POST /api/workspaces/:id/invite
-  static async inviteMember(req: WorkspaceRequest, res: Response) {
-    try {
-      const { email, role = "MEMBER" } = req.body;
-
-      if (!email) {
-        return res.status(400).json({ error: "Email required" });
-      }
-
-      // Check if user already member
-      const existingUser = await prisma.user.findUnique({ where: { email } });
-
-      if (existingUser) {
-        const alreadyMember = await prisma.workspaceMember.findUnique({
-          where: {
-            workspaceId_userId: {
-              workspaceId: req.workspaceId!,
-              userId: existingUser.id,
-            },
-          },
+      // 1. Validate userId exists
+      if (!userId || typeof userId !== "string") {
+        return res.status(400).json({
+          error: "Valid userId is required",
         });
-
-        if (alreadyMember) {
-          return res.status(400).json({ error: "User already a member" });
-        }
       }
 
-      // Generate secure random token
-      const token = crypto.randomBytes(32).toString("hex");
+      await WorkspaceService.removeMember(
+        req.workspaceId!,
+        userId,
+        req.user!.userId, // Who's requesting this
+      );
 
-      // Get inviter info
-      const inviter = await prisma.user.findUnique({
-        where: { id: req.user!.userId },
-      });
-
-      const workspace = await prisma.workspace.findUnique({
-        where: { id: req.workspaceId },
-      });
-
-      // Create invitation
-      const invitation = await prisma.invitation.create({
-        data: {
-          workspaceId: req.workspaceId!,
-          email,
-          role,
-          token,
-          invitedBy: req.user!.userId,
-          expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        },
-      });
-
-      // Send email
-      await sendInviteEmail(email, inviter!.name, workspace!.name, token);
-
-      res.status(201).json({
-        message: "Invitation sent",
-        invitationId: invitation.id,
-      });
+      res.json({ message: "Member removed successfully" });
     } catch (error: any) {
-      res.status(500).json({ error: error.message });
-    }
-  }
+      console.error("Remove member error:", error);
 
-  // POST /api/invitations/accept
-  static async acceptInvitation(req: AuthRequest, res: Response) {
-    try {
-      const { token } = req.body;
-
-      if (!token) {
-        return res.status(400).json({ error: "Token required" });
+      if (error.message.includes("not found")) {
+        return res.status(404).json({ error: error.message });
+      }
+      if (error.message.includes("Cannot")) {
+        return res.status(403).json({ error: error.message });
       }
 
-      // Find invitation
-      const invitation = await prisma.invitation.findUnique({
-        where: { token },
-      });
-
-      if (!invitation) {
-        return res.status(404).json({ error: "Invitation not found" });
-      }
-
-      // Check not expired
-      if (invitation.expiresAt < new Date()) {
-        return res.status(400).json({ error: "Invitation expired" });
-      }
-
-      // Check not already accepted
-      if (invitation.acceptedAt) {
-        return res.status(400).json({ error: "Invitation already used" });
-      }
-
-      // Add user to workspace
-      await prisma.$transaction(async (tx) => {
-        // Add membership
-        await tx.workspaceMember.create({
-          data: {
-            workspaceId: invitation.workspaceId,
-            userId: req.user!.userId,
-            role: invitation.role,
-          },
-        });
-
-        // Mark invitation accepted
-        await tx.invitation.update({
-          where: { id: invitation.id },
-          data: { acceptedAt: new Date() },
-        });
-      });
-
-      res.json({
-        message: "Joined workspace successfully",
-        workspaceId: invitation.workspaceId,
-      });
-    } catch (error: any) {
       res.status(500).json({ error: error.message });
     }
   }
